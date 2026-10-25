@@ -257,6 +257,11 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
                             crate::notices::post(app, title, lines, false, None);
                             app.save_as_with(None, choices)
                         }
+
+                        // Quick-save preference is turned on for flat files
+                        // Such file only needs to have a path
+                        Some((_, path, _)) if app.session.prefs().file_handling.quick_save_flat_file => app.save_in_place(path, choices),
+
                         // A flat file asks for its name; confirming its own file records a
                         // plain Save that writes the file an action is played on (#3531).
                         _ => app.save_dialog_flow(None, choices, true),

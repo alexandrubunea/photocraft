@@ -1291,6 +1291,10 @@ fn humanize(key: &str) -> String {
     if key == "lowLatencyDrawing" {
         return "Low-Latency Drawing (vsync off, applies at next launch)".into();
     }
+    // File Handling: Quick save option for batch editing workflows (#8922).
+    if key == "quickSaveFlatFile" {
+        return "Overwrite non-project files directly (skips Save As)".into();
+    }
     // Performance: the canvas compositor's GPU memory, 0 for the automatic budget (L3).
     if key == "gpuMemoryMb" {
         return "GPU Memory (MB, 0 = Automatic)".into();
