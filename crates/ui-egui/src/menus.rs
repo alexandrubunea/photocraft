@@ -260,7 +260,10 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
 
                         // Quick-save preference is turned on for flat files
                         // Such file only needs to have a path
-                        Some((_, path, _)) if app.session.prefs().file_handling.quick_save_flat_file => app.save_in_place(path, choices),
+                        Some((_, path, d)) if app.session.prefs().file_handling.quick_save_flat_file => {
+                            let doc = d.doc.id;
+                            crate::disk_change_prompt::intercept(app, doc, &path, true, choices).unwrap_or_else(|| app.save_in_place(path, choices))
+                        }
 
                         // A flat file asks for its name; confirming its own file records a
                         // plain Save that writes the file an action is played on (#3531).
