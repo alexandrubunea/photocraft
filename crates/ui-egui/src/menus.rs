@@ -201,6 +201,12 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
         apply_workspace(app);
         return Ok(json!({"workspace": app.ui.workspace}));
     }
+
+    // Commit any transform tool change before switching tabs (#9735)
+    if app.ui.transform.is_some() && matches!(id, "window.nextDocument" | "window.previousDocument" | "file.new" | "file.open") {
+        crate::transform_tool::commit(app);
+    }
+
     match id {
         // ⌘↩ / Ctrl+Enter (#306): load the path selected in the Paths panel (or the one being
         // drawn) as a selection.
@@ -2365,6 +2371,26 @@ mod window_documents_tests {
             assert_eq!(window[at - 1].label, "---", "a separator comes before the documents");
         }
         window[at..].iter().map(|i| (i.id.clone(), i.label.clone(), i.checked)).collect()
+    }
+
+    /// #9735: Switching documents must commit any open transform session to prevent state loss.
+    #[test]
+    fn transform_commits_on_window_next_document() {
+        use serde_json::json;
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        app.run("file.new", json!({"width": 64, "height": 64})).unwrap();
+        app.run("file.new", json!({"width": 64, "height": 64})).unwrap();
+        app.session.set_active(0);
+
+        app.run("select.all", json!({})).unwrap();
+        let ctx = egui::Context::default();
+        crate::menus::invoke(&mut app, &ctx, "select.transformSelection", json!({})).unwrap();
+        assert!(app.ui.transform.is_some(), "transform must be active on the first document");
+
+        crate::menus::invoke(&mut app, &ctx, "window.nextDocument", json!({})).unwrap();
+
+        assert!(app.ui.transform.is_none(), "transform must clear when switching documents via command");
+        assert_eq!(app.session.active_index(), Some(1), "focus must move to the second document");
     }
 
     /// #2991: Window ends with the open documents in tab order, the active one checked, as in

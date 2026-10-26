@@ -2212,6 +2212,13 @@ fn front_vertices(h: &Homography, n: usize) -> Vec<bool> {
 /// Photoshop. The box, handles and reference point are [`draw_overlay`], drawn over the guides.
 pub fn draw_content(app: &PhotocraftApp, painter: &egui::Painter, xf: &ViewXform) {
     let (Some(t), Some(pv)) = (&app.ui.transform, &app.transform_preview) else { return };
+
+    // Fix for ghosting after #9735: The async background commit leaves the transform preview populated.
+    // We must ensure the preview is only drawn if its document matches the currently active document.
+    if app.session.active().map(|st| st.doc.id) != Some(pv.doc.id) {
+        return;
+    }
+
     let output = crate::monitor_status::view_display(app, painter.ctx());
     let (display, _) = crate::canvas::canvas_display(app, &pv.doc, output);
     // Selection tint and lone mask/channel values are UI diagnostics, not document colors.
@@ -2272,6 +2279,13 @@ pub fn draw_content(app: &PhotocraftApp, painter: &egui::Painter, xf: &ViewXform
 /// drew; the warp grid and its split guides for a warp.
 pub fn draw_overlay(app: &PhotocraftApp, painter: &egui::Painter, xf: &ViewXform) {
     let (Some(t), Some(pv)) = (&app.ui.transform, &app.transform_preview) else { return };
+
+    // Fix for ghosting after #9735: The async background commit leaves the transform preview populated.
+    // We must ensure the preview is only drawn if its document matches the currently active document.
+    if app.session.active().map(|st| st.doc.id) != Some(pv.doc.id) {
+        return;
+    }
+
     let scr = |q: [f64; 2]| xf.to_screen(q[0] as f32, q[1] as f32);
     if let Some(w) = &t.warp {
         let over_canvas = painter.ctx().input(|i| i.pointer.hover_pos()).filter(|p| xf.rect.contains(*p)).map(|p| xf.to_doc(p));

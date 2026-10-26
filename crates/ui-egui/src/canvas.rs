@@ -2655,6 +2655,11 @@ fn documents(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             if d != idx {
                 app.ui.views[d] = v;
                 if ui.input(|i| i.pointer.primary_pressed() && i.pointer.interact_pos().is_some_and(|p| cell.contains(p))) {
+                    // Commit any transform tool change before switching tabs (#9735)
+                    if app.ui.transform.is_some() {
+                        crate::transform_tool::commit(app);
+                    }
+
                     app.session.set_active(d);
                 }
             }
@@ -2982,6 +2987,11 @@ fn open_tab_clicks(
     cancel_open: Option<photocraft_engine::jobs::JobId>,
 ) {
     if let Some(i) = activate {
+        // Commit any transform tool change before switching tabs (#9735)
+        if app.ui.transform.is_some() {
+            crate::transform_tool::commit(app);
+        }
+
         app.session.set_active(i);
         app.jobs.focus = None;
     }
@@ -6909,6 +6919,44 @@ mod tabs_tests;
 
 #[cfg(test)]
 mod tests {
+    /// #9735: Switching documents must commit any open transform session to prevent state loss.
+    #[test]
+    fn transform_commits_on_tab_click() {
+        use egui_kittest::kittest::Queryable;
+        use serde_json::json;
+
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        for name in ["first", "second"] {
+            app.run("file.new", json!({"width": 64, "height": 64, "name": name})).unwrap();
+        }
+        app.sync_views();
+        app.session.set_active(0);
+
+        app.run("select.all", json!({})).unwrap();
+        let ctx = egui::Context::default();
+        crate::menus::invoke(&mut app, &ctx, "select.transformSelection", json!({})).unwrap();
+        assert!(app.ui.transform.is_some(), "transform must be active");
+
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(700.0, 40.0)).build_ui_state(
+            |ui, (app, ready): &mut (PhotocraftApp, bool)| {
+                if *ready {
+                    tabs(app, ui);
+                }
+            },
+            (app, false),
+        );
+
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Studio);
+        h.state_mut().1 = true;
+        h.run_steps(2);
+
+        h.get_by_label_contains("second").click_button(egui::PointerButton::Primary);
+        h.run_steps(2);
+
+        assert!(h.state().0.ui.transform.is_none(), "transform must clear on tab click");
+        assert_eq!(h.state().0.session.active_index(), Some(1), "active document must change");
+    }
+
     /// #5472: a ⇧ square pressed between pixels snapped to 101 × 102; the short side grows to
     /// match, on the side the drag points to.
     #[test]
