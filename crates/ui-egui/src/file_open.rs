@@ -197,7 +197,7 @@ impl PhotocraftApp {
         let canon = canonical(path);
         let same = |p: &str| same_file(p, path, canon.as_deref());
         if let Some(i) = self.session.documents().iter().position(|d| d.path.as_deref().is_some_and(same)) {
-            self.session.set_active(i);
+            self.activate_document(i); // Commit any transform tool change before switching documents (#9735)
             self.jobs.focus = None;
         } else if let Some(o) = self.jobs.opens.iter().find(|o| o.path.as_deref().is_some_and(|p| !is_template(p) && same(p))) {
             // A template still loading opens as another Untitled, as it does once loaded.

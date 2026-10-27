@@ -829,6 +829,11 @@ pub fn confirm(app: &mut PhotocraftApp, id: u64) -> Result<Value, String> {
             // #9735: Before creating a document, we commit the current transform, if there is any
             if app.ui.transform.is_some() {
                 crate::transform_tool::commit(app);
+
+                // Do not proceed if the transform is not commited
+                if app.ui.transform.is_some() {
+                    return Ok(Value::Null);
+                }
             }
 
             let r = app.run("file.new", crate::new_doc_ui::command_params(&d.fields));

@@ -2655,7 +2655,7 @@ fn documents(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             if d != idx {
                 app.ui.views[d] = v;
                 if ui.input(|i| i.pointer.primary_pressed() && i.pointer.interact_pos().is_some_and(|p| cell.contains(p))) {
-                    // Commit any transform tool change before switching tabs (#9735)
+                    // Commit any transform tool change before switching documents (#9735)
                     app.activate_document(d);
                 }
             }
@@ -2983,7 +2983,7 @@ fn open_tab_clicks(
     cancel_open: Option<photocraft_engine::jobs::JobId>,
 ) {
     if let Some(i) = activate {
-        // Commit any transform tool change before switching tabs (#9735)
+        // Commit any transform tool change before switching documents (#9735)
         app.activate_document(i);
         app.jobs.focus = None;
     }

@@ -2901,6 +2901,11 @@ impl PhotocraftApp {
     pub(crate) fn activate_document(&mut self, index: usize) {
         if index < self.session.documents().len() && self.session.active_index() != Some(index) && self.ui.transform.is_some() {
             crate::transform_tool::commit(self);
+
+            // If the transform commit fails, do not change the document
+            if self.ui.transform.is_some() {
+                return;
+            }
         }
         self.session.set_active(index);
     }
