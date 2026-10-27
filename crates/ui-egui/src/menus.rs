@@ -636,6 +636,10 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
             let at = app.session.active_index().ok_or("no document open")?;
             let to = if id == "window.nextDocument" { (at + 1) % n } else { (at + n - 1) % n };
             app.activate_document(to); // #9735: We need to commit the transform changes before changing the document
+            // If the activate_document fails, then do not proceed.
+            if app.session.active_index() != Some(to) {
+                return Err("could not activate document".into());
+            }
             app.jobs.focus = None;
             Ok(json!({"document": to}))
         }
@@ -643,6 +647,10 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
             let n = app.session.documents().len();
             let to = index.parse::<usize>().ok().filter(|i| *i < n).ok_or("no such document")?;
             app.activate_document(to); // #9735: We need to commit the transform changes before changing the document
+            // If the activate_document fails, then do not proceed.
+            if app.session.active_index() != Some(to) {
+                return Err("could not activate document".into());
+            }
             app.jobs.focus = None;
             Ok(json!({"document": to}))
         }

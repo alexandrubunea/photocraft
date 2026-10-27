@@ -141,6 +141,11 @@ impl PhotocraftApp {
         // #9735: Before opening a document, we commit the current transform, if there is any
         if !crate::preset_files_ui::PRESET_EXTS.contains(&ext.as_str()) && self.ui.transform.is_some() {
             crate::transform_tool::commit(self);
+
+            // If the transform commit fails, do not change the document
+            if self.ui.transform.is_some() {
+                return Ok(Vec::new());
+            }
         }
 
         if self.background_jobs && !crate::preset_files_ui::PRESET_EXTS.contains(&ext.as_str()) {
@@ -198,6 +203,10 @@ impl PhotocraftApp {
         let same = |p: &str| same_file(p, path, canon.as_deref());
         if let Some(i) = self.session.documents().iter().position(|d| d.path.as_deref().is_some_and(same)) {
             self.activate_document(i); // Commit any transform tool change before switching documents (#9735)
+            // If the activate_document fails, then do not proceed.
+            if self.session.active_index() != Some(i) {
+                return false;
+            }
             self.jobs.focus = None;
         } else if let Some(o) = self.jobs.opens.iter().find(|o| o.path.as_deref().is_some_and(|p| !is_template(p) && same(p))) {
             // A template still loading opens as another Untitled, as it does once loaded.
