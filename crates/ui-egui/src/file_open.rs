@@ -144,7 +144,7 @@ impl PhotocraftApp {
 
             // If the transform commit fails, do not change the document
             if self.ui.transform.is_some() {
-                return Ok(Vec::new());
+                return Err("Cannot open file while transform is active".into());
             }
         }
 

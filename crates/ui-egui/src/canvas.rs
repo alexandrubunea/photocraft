@@ -2985,7 +2985,9 @@ fn open_tab_clicks(
     if let Some(i) = activate {
         // Commit any transform tool change before switching documents (#9735)
         app.activate_document(i);
-        app.jobs.focus = None;
+        if app.session.active_index() == Some(i) {
+            app.jobs.focus = None;
+        }
     }
     if let Some(job) = focus_open {
         app.jobs.focus = Some(job);
