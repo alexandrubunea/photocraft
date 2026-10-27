@@ -832,7 +832,7 @@ pub fn confirm(app: &mut PhotocraftApp, id: u64) -> Result<Value, String> {
 
                 // Do not proceed if the transform is not commited
                 if app.ui.transform.is_some() {
-                    return Ok(Value::Null);
+                    return Err("Cannot create file while transform is active".into());
                 }
             }
 

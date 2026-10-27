@@ -1620,6 +1620,15 @@ impl PhotocraftApp {
         if let Some(r) = preset_files_ui::open(self, name, bytes) {
             return r.map(|()| Vec::new());
         }
+
+        // #9735: Before opening a document from bytes, commit the current transform if any
+        if self.ui.transform.is_some() {
+            crate::transform_tool::commit(self);
+            if self.ui.transform.is_some() {
+                return Err("Cannot open file while transform is active".into());
+            }
+        }
+
         let name = &self.open_name(name);
         // Decoded on a worker: a tab with progress appears now, the document when it's ready
         // (warnings are shown then).
