@@ -2656,11 +2656,7 @@ fn documents(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                 app.ui.views[d] = v;
                 if ui.input(|i| i.pointer.primary_pressed() && i.pointer.interact_pos().is_some_and(|p| cell.contains(p))) {
                     // Commit any transform tool change before switching tabs (#9735)
-                    if app.ui.transform.is_some() {
-                        crate::transform_tool::commit(app);
-                    }
-
-                    app.session.set_active(d);
+                    app.activate_document(d);
                 }
             }
             let stroke = if d == idx { Stroke::new(1.5, t.accent) } else { Stroke::new(1.0, Color32::from_black_alpha(160)) };
@@ -2988,11 +2984,7 @@ fn open_tab_clicks(
 ) {
     if let Some(i) = activate {
         // Commit any transform tool change before switching tabs (#9735)
-        if app.ui.transform.is_some() {
-            crate::transform_tool::commit(app);
-        }
-
-        app.session.set_active(i);
+        app.activate_document(i);
         app.jobs.focus = None;
     }
     if let Some(job) = focus_open {
@@ -6930,7 +6922,7 @@ mod tests {
             app.run("file.new", json!({"width": 64, "height": 64, "name": name})).unwrap();
         }
         app.sync_views();
-        app.session.set_active(0);
+        app.activate_document(0);
 
         app.run("select.all", json!({})).unwrap();
         let ctx = egui::Context::default();

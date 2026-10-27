@@ -2895,6 +2895,18 @@ impl PhotocraftApp {
 }
 
 impl PhotocraftApp {
+    /// This is a helper function created in order to fix #9735.
+    /// Safely switches the active document index, automatically committing any
+    /// active Free Transform or Warp session if the target document differs.
+    pub(crate) fn activate_document(&mut self, index: usize) {
+        if index < self.session.documents().len() && self.session.active_index() != Some(index) && self.ui.transform.is_some() {
+            crate::transform_tool::commit(self);
+        }
+        self.session.set_active(index);
+    }
+}
+
+impl PhotocraftApp {
     /// Cached `Surface::content_bounds` keyed by an id and the surface's tile identity.
     pub fn cached_bounds(&mut self, key: u64, surface: &photocraft_raster::Surface) -> photocraft_geom::Rect {
         let rev = surface_fingerprint(surface);

@@ -826,6 +826,11 @@ pub fn confirm(app: &mut PhotocraftApp, id: u64) -> Result<Value, String> {
     let d = app.ui.close_dialog(id).ok_or_else(|| format!("no dialog {id}"))?;
     match d.kind {
         DialogKind::NewDocument => {
+            // #9735: Before creating a document, we commit the current transform, if there is any
+            if app.ui.transform.is_some() {
+                crate::transform_tool::commit(app);
+            }
+
             let r = app.run("file.new", crate::new_doc_ui::command_params(&d.fields));
             if let Some(i) = app.session.active_index() {
                 app.ui.views[i].fit_pending = true;

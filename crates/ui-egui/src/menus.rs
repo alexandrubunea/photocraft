@@ -202,11 +202,6 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
         return Ok(json!({"workspace": app.ui.workspace}));
     }
 
-    // Commit any transform tool change before switching tabs (#9735)
-    if app.ui.transform.is_some() && matches!(id, "window.nextDocument" | "window.previousDocument" | "file.new" | "file.open") {
-        crate::transform_tool::commit(app);
-    }
-
     match id {
         // ⌘↩ / Ctrl+Enter (#306): load the path selected in the Paths panel (or the one being
         // drawn) as a selection.
@@ -640,14 +635,14 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
             let n = app.session.documents().len();
             let at = app.session.active_index().ok_or("no document open")?;
             let to = if id == "window.nextDocument" { (at + 1) % n } else { (at + n - 1) % n };
-            app.session.set_active(to);
+            app.activate_document(to); // #9735: We need to commit the transform changes before changing the document
             app.jobs.focus = None;
             Ok(json!({"document": to}))
         }
         id if let Some(index) = id.strip_prefix(DOCUMENT_ITEM) => {
             let n = app.session.documents().len();
             let to = index.parse::<usize>().ok().filter(|i| *i < n).ok_or("no such document")?;
-            app.session.set_active(to);
+            app.activate_document(to); // #9735: We need to commit the transform changes before changing the document
             app.jobs.focus = None;
             Ok(json!({"document": to}))
         }
