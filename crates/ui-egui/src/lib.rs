@@ -1621,10 +1621,20 @@ impl PhotocraftApp {
             return r.map(|()| Vec::new());
         }
 
-        // #9735: Before opening a document from bytes, commit the current transform if any
+        // #9735: Commit any active transform before opening a file from memory bytes.
         if self.ui.transform.is_some() {
             crate::transform_tool::commit(self);
             if self.ui.transform.is_some() {
+                // #9735: If the commit is running as a background job, defer opening the
+                // in-memory file until the commit lands; otherwise abort if refused.
+                let name = name.to_owned();
+                let bytes = bytes.to_vec();
+                let path = path.map(str::to_owned);
+                if crate::transform_tool::defer_after_commit(self, move |app| {
+                    let _ = app.open_bytes_from(&name, &bytes, path.as_deref());
+                }) {
+                    return Ok(Vec::new());
+                }
                 return Err("Cannot open file while transform is active".into());
             }
         }
@@ -2911,8 +2921,12 @@ impl PhotocraftApp {
         if index < self.session.documents().len() && self.session.active_index() != Some(index) && self.ui.transform.is_some() {
             crate::transform_tool::commit(self);
 
-            // If the transform commit fails, do not change the document
             if self.ui.transform.is_some() {
+                // #9735: If the commit is running as a background job, defer the tab switch
+                // until the commit finishes; otherwise abort if the commit was refused.
+                crate::transform_tool::defer_after_commit(self, move |app| {
+                    app.activate_document(index);
+                });
                 return;
             }
         }

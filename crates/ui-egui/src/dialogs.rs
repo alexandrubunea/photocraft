@@ -826,12 +826,27 @@ pub fn confirm(app: &mut PhotocraftApp, id: u64) -> Result<Value, String> {
     let d = app.ui.close_dialog(id).ok_or_else(|| format!("no dialog {id}"))?;
     match d.kind {
         DialogKind::NewDocument => {
-            // #9735: Before creating a document, we commit the current transform, if there is any
+            // #9735: Commit any active transform before creating a new document.
             if app.ui.transform.is_some() {
                 crate::transform_tool::commit(app);
 
-                // Do not proceed if the transform is not commited
                 if app.ui.transform.is_some() {
+                    // #9735: If the commit is running as a background job, defer document
+                    // creation until the commit finishes; otherwise abort if refused.
+                    let fields = d.fields.clone();
+                    if crate::transform_tool::defer_after_commit(app, move |app| {
+                        let r = app.run("file.new", crate::new_doc_ui::command_params(&fields));
+                        if let Some(i) = app.session.active_index() {
+                            app.ui.views[i].fit_pending = true;
+                        }
+                        if r.is_ok() {
+                            crate::remember_new_document(app, &fields);
+                            // File › New › Recent. Best effort: the document exists either way.
+                            let _ = app.run("document.recent.add", json!({"settings": crate::new_doc_ui::document_settings(&fields)}));
+                        }
+                    }) {
+                        return Ok(serde_json::Value::Null);
+                    }
                     return Err("Cannot create file while transform is active".into());
                 }
             }

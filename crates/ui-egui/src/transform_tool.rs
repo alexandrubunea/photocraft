@@ -48,6 +48,9 @@ impl SplitTool {
     }
 }
 
+/// Deferred UI callback executed once a background transform commit job finishes (#9735).
+type AfterCommit = Box<dyn FnOnce(&mut PhotocraftApp)>;
+
 /// What a Warp-mode press grabbed. `pts0` is the mesh's control grid at the press.
 enum WarpDrag {
     /// An anchor or handle: it follows the pointer (an anchor takes its handles along).
@@ -89,6 +92,9 @@ pub struct TransformPreview {
     /// The commit running as a background job (#1015): the moving pixels stay on screen, without
     /// the box, until it lands; Esc cancels it. The session ends with the job.
     committing: Option<JobId>,
+    /// Deferred UI action (such as tab switching or file creation) queued while a background
+    /// commit job is in progress, executed once the commit lands (#9735).
+    after_commit: Option<AfterCommit>,
     /// Content-Aware Scale's live preview (cas_transform.rs).
     pub(crate) content_aware: Option<crate::cas_transform::Live>,
 }
@@ -253,6 +259,7 @@ pub fn begin(app: &mut PhotocraftApp, ctx: &egui::Context) -> Result<(), String>
         styled: styled.then(|| crate::transform_fx::StyledPreview::new(format!("transform-{session}-styled"))),
         follow: Some(Follow { revision, hidden: lifted.is_none() }),
         committing: None,
+        after_commit: None,
         gesture: None,
         warp_drag: None,
         split_tool: None,
@@ -353,6 +360,7 @@ pub(crate) fn begin_content_aware(
         above: Some(above),
         follow: Some(Follow { revision, hidden: false }),
         committing: None,
+        after_commit: None,
         gesture: None,
         warp_drag: None,
         split_tool: None,
@@ -479,6 +487,7 @@ fn begin_lone(
         styled: None,
         follow: None,
         committing: None,
+        after_commit: None,
         gesture: None,
         warp_drag: None,
         split_tool: None,
@@ -542,6 +551,7 @@ fn begin_path(app: &mut PhotocraftApp, ctx: &egui::Context, params: serde_json::
         above: None,
         follow: None,
         committing: None,
+        after_commit: None,
     });
     app.ui.transform = Some(TransformSession {
         session,
@@ -617,6 +627,7 @@ pub fn begin_selection(app: &mut PhotocraftApp, ctx: &egui::Context) -> Result<(
         styled: None,
         follow: None,
         committing: None,
+        after_commit: None,
         gesture: None,
         warp_drag: None,
         split_tool: None,
@@ -1144,13 +1155,34 @@ pub fn on_job_event(app: &mut PhotocraftApp, e: &JobEvent) {
     // unless picking another tool or layer started it: then the box ends, as Esc would.
     if let JobOutcome::Failed(msg) = &e.outcome {
         pv.committing = None;
+        // #9735: Clear any deferred action if the background commit failed.
+        pv.after_commit = None;
         keep_open(app, t, Some(pv), msg.clone());
         if switched_away(app) {
             cancel(app);
         }
         return;
     }
-    finish(app, Some(pv.doc.id), LayerId(t.layer), t.made, matches!(e.outcome, JobOutcome::Done(_)));
+    let landed = matches!(e.outcome, JobOutcome::Done(_));
+    let after = pv.after_commit.take();
+    finish(app, Some(pv.doc.id), LayerId(t.layer), t.made, landed);
+    // #9735: Resume the halted document switch, file open, or creation once the commit lands.
+    if landed && let Some(action) = after {
+        action(app);
+    }
+}
+
+/// Queues action to run automatically once an in-flight background commit (pv.committing)
+/// finishes (#9735). Returns true if a background commit is active and the action was queued,
+/// or false if the transform remained open due to a synchronous refusal/error.
+pub fn defer_after_commit(app: &mut PhotocraftApp, action: impl FnOnce(&mut PhotocraftApp) + 'static) -> bool {
+    if let Some(pv) = app.transform_preview.as_mut()
+        && pv.committing.is_some()
+    {
+        pv.after_commit = Some(Box::new(action));
+        return true;
+    }
+    false
 }
 
 /// A commit the engine refused (a result over the pixel budget, #3773): the box stays open as it

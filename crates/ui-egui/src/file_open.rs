@@ -138,12 +138,18 @@ impl PhotocraftApp {
         // would block the window). Preset files (brushes, gradients) go the usual way.
         let ext = std::path::Path::new(path).extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
 
-        // #9735: Before opening a document, we commit the current transform, if there is any
-        if !crate::preset_files_ui::PRESET_EXTS.contains(&ext.as_str()) && self.ui.transform.is_some() {
+        // #9735: Commit any active transform before opening a file from disk.
+        if self.ui.transform.is_some() {
             crate::transform_tool::commit(self);
-
-            // If the transform commit fails, do not change the document
             if self.ui.transform.is_some() {
+                // #9735: If the commit is running as a background job, defer opening the
+                // file until the commit lands; otherwise abort if the commit was refused.
+                let path = path.to_owned();
+                if crate::transform_tool::defer_after_commit(self, move |app| {
+                    let _ = app.open_path(&path);
+                }) {
+                    return Ok(Vec::new());
+                }
                 return Err("Cannot open file while transform is active".into());
             }
         }
