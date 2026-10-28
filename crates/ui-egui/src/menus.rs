@@ -637,7 +637,7 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
             let to = if id == "window.nextDocument" { (at + 1) % n } else { (at + n - 1) % n };
             app.activate_document(to); // #9735: We need to commit the transform changes before changing the document
             // If the activate_document fails, then do not proceed.
-            if app.session.active_index() != Some(to) {
+            if app.session.active_index() != Some(to) && crate::transform_tool::committing(app).is_none() {
                 return Err("could not activate document".into());
             }
             app.jobs.focus = None;
@@ -648,7 +648,7 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
             let to = index.parse::<usize>().ok().filter(|i| *i < n).ok_or("no such document")?;
             app.activate_document(to); // #9735: We need to commit the transform changes before changing the document
             // If the activate_document fails, then do not proceed.
-            if app.session.active_index() != Some(to) {
+            if app.session.active_index() != Some(to) && crate::transform_tool::committing(app).is_none() {
                 return Err("could not activate document".into());
             }
             app.jobs.focus = None;
